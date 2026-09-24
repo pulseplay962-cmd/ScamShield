@@ -1,6 +1,9 @@
 import type { ScanResult } from '../types'
 
-const apiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const apiUrl = (
+  import.meta.env.VITE_API_URL ||
+  'https://scamshield-api-0n7o.onrender.com'
+).replace(/\/$/, '')
 
 export async function analyzeWithApi(text: string): Promise<ScanResult> {
   if (!apiUrl) throw new Error('AI API is not configured')
