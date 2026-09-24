@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { analyzeText } from './analyzer'
+import { analyzeWithApi } from './services/scamshieldApi'
 import type { RiskLevel, ScanResult } from './types'
 
 const riskMeta: Record<RiskLevel, { icon: string; label: string }> = {
@@ -12,21 +13,28 @@ const riskMeta: Record<RiskLevel, { icon: string; label: string }> = {
 function App() {
   const [input, setInput] = useState('')
   const [result, setResult] = useState<ScanResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [error, setError] = useState('')
 
-  const placeholder = useMemo(
-    () => 'Paste an email, text message, or suspicious content here…',
-    [],
-  )
-
-  function checkContent() {
+  async function checkContent() {
     const trimmed = input.trim()
-    if (!trimmed) return
-    setResult(analyzeText(trimmed))
+    if (!trimmed || checking) return
+    setChecking(true)
+    setError('')
+    try {
+      setResult(await analyzeWithApi(trimmed))
+    } catch {
+      setResult(analyzeText(trimmed))
+      setError('AI analysis is unavailable right now, so ScamShield used its local safety checker instead.')
+    } finally {
+      setChecking(false)
+    }
   }
 
   function clearCheck() {
     setInput('')
     setResult(null)
+    setError('')
   }
 
   return (
@@ -64,23 +72,26 @@ function App() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder={placeholder}
+            placeholder="Paste an email, text message, or suspicious content here…"
             aria-label="Message to check"
             rows={9}
+            disabled={checking}
           />
 
           <div className="checker-footer">
             <span className="privacy-note">Your first-pass check runs locally in this demo.</span>
             <div className="actions">
-              <button className="ghost-button" onClick={clearCheck} disabled={!input && !result}>
+              <button className="ghost-button" onClick={clearCheck} disabled={checking || (!input && !result)}>
                 Clear
               </button>
-              <button className="primary-button" onClick={checkContent} disabled={!input.trim()}>
-                Check it <span>→</span>
+              <button className="primary-button" onClick={checkContent} disabled={checking || !input.trim()}>
+                {checking ? 'Checking…' : <>Check it <span>→</span></>}
               </button>
             </div>
           </div>
         </section>
+
+        {error && <div className="fallback-notice">{error}</div>}
 
         {result && (
           <section className="result-card" aria-live="polite">
